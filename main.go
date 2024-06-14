@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"log"
 	"strconv"
 	"strings"
@@ -78,7 +78,7 @@ func tsp(dist [][]float64) (float64, []int) {
 	return minDistance, minPath
 }
 
-func getCostMatrixFromString(costMatrixString string, numberOfPoints int) [][]float64 {
+func getCostMatrixFromString(costMatrixString string, numberOfPoints int) ([][]float64, error) {
 
 	strValues := strings.Split(costMatrixString, ",")
 
@@ -88,7 +88,7 @@ func getCostMatrixFromString(costMatrixString string, numberOfPoints int) [][]fl
 	for i, str := range strValues {
 		value, err := strconv.ParseFloat(str, 64)
 		if err != nil {
-			fmt.Println("Error converting string to float64:", err)
+			return nil, errors.New("error converting string to float64")
 		}
 		tempArr[i] = value
 	}
@@ -105,7 +105,7 @@ func getCostMatrixFromString(costMatrixString string, numberOfPoints int) [][]fl
 			k++
 		}
 	}
-	return arr
+	return arr, nil
 }
 
 type MyEvent struct {
