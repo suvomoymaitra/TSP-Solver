@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -73,6 +76,36 @@ func tsp(dist [][]float64) (float64, []int) {
 
 	minPath := findPath()
 	return minDistance, minPath
+}
+
+func getCostMatrixFromString(costMatrixString string, numberOfPoints int) [][]float64 {
+
+	strValues := strings.Split(costMatrixString, ",")
+
+	tempArr := make([]float64, len(strValues))
+
+	// Convert each substring to a float64
+	for i, str := range strValues {
+		value, err := strconv.ParseFloat(str, 64)
+		if err != nil {
+			fmt.Println("Error converting string to float64:", err)
+		}
+		tempArr[i] = value
+	}
+
+	arr := make([][]float64, numberOfPoints)
+	for i := range arr {
+		arr[i] = make([]float64, numberOfPoints)
+	}
+	k := 0
+
+	for i := 0; i < numberOfPoints; i++ {
+		for j := 0; j < numberOfPoints; j++ {
+			arr[i][j] = tempArr[k]
+			k++
+		}
+	}
+	return arr
 }
 
 type MyEvent struct {
