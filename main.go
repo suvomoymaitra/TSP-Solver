@@ -156,14 +156,21 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	distance_matrix, err := getCostMatrixFromString(event.DistanceMatrix, int(event.NumberOfPoints))
+	distanceMatrix, err := getCostMatrixFromString(event.DistanceMatrix, int(event.NumberOfPoints))
 
 	if err != nil {
-
+		log.Printf("error in getting cost matrix from string: %v", err)
+		return MyResponse{
+			StatusCode: 400,
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+			Body: `{"message": "error in getting cost matrix from string" }`,
+		}, nil
 	}
 
-	minDistance, optimalPath := tsp(distance_matrix)
-	mindistanceString := strconv.FormatFloat(minDistance, 'f', 6, 64)
+	minDistance, optimalPath := tsp(distanceMatrix)
+	minDistanceString := strconv.FormatFloat(minDistance, 'f', 6, 64)
 
 	var strArray []string
 	for _, num := range optimalPath {
@@ -173,7 +180,7 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 	optimalPathString := strings.Join(strArray, ", ")
 
 	body, err := json.Marshal(map[string]string{
-		"min_distance": mindistanceString,
+		"min_distance": minDistanceString,
 		"optimal_path": optimalPathString,
 	})
 	if err != nil {
