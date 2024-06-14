@@ -156,10 +156,25 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	optimalSequence := "calculate optimal sequence"
+	distance_matrix, err := getCostMatrixFromString(event.DistanceMatrix, int(event.NumberOfPoints))
+
+	if err != nil {
+
+	}
+
+	minDistance, optimalPath := tsp(distance_matrix)
+	mindistanceString := strconv.FormatFloat(minDistance, 'f', 6, 64)
+
+	var strArray []string
+	for _, num := range optimalPath {
+		str := strconv.Itoa(num)
+		strArray = append(strArray, str)
+	}
+	optimalPathString := strings.Join(strArray, ", ")
 
 	body, err := json.Marshal(map[string]string{
-		"result": optimalSequence,
+		"min_distance": mindistanceString,
+		"optimal_path": optimalPathString,
 	})
 	if err != nil {
 		log.Printf("Error marshaling response: %v", err)
