@@ -3,11 +3,110 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 )
+
+const MAX = 1e9
+
+func tsp(dist [][]float64) (float64, []int) {
+	n := len(dist)
+	memo := make([][]float64, n)
+	for i := range memo {
+		memo[i] = make([]float64, 1<<n)
+		for j := range memo[i] {
+			memo[i][j] = -1
+		}
+	}
+
+	// dp function to find the minimum cost
+	var dp func(pos, mask int) float64
+	dp = func(pos, mask int) float64 {
+		if mask == (1<<n)-1 {
+			return dist[pos][0]
+		}
+		if memo[pos][mask] != -1 {
+			return memo[pos][mask]
+		}
+		minCost := MAX
+		for city := 0; city < n; city++ {
+			if city != pos && (mask&(1<<city)) == 0 {
+				newCost := dist[pos][city] + dp(city, mask|(1<<city))
+				if newCost < minCost {
+					minCost = newCost
+				}
+			}
+		}
+		memo[pos][mask] = minCost
+		return minCost
+	}
+
+	minDistance := dp(0, 1)
+
+	// Function to reconstruct the path
+	findPath := func() []int {
+		mask := 1
+		pos := 0
+		path := []int{0}
+
+		for i := 1; i < n; i++ {
+			bestCity := -1
+			bestCost := MAX
+			for city := 0; city < n; city++ {
+				if (mask & (1 << city)) == 0 {
+					currentCost := dist[pos][city] + memo[city][mask|(1<<city)]
+					if currentCost < bestCost {
+						bestCost = currentCost
+						bestCity = city
+					}
+				}
+			}
+			path = append(path, bestCity)
+			pos = bestCity
+			mask |= 1 << bestCity
+		}
+		path = append(path, 0)
+		return path
+	}
+
+	minPath := findPath()
+	return minDistance, minPath
+}
+
+func getCostMatrixFromString(costMatrixString string, numberOfPoints int) ([][]float64, error) {
+
+	strValues := strings.Split(costMatrixString, ",")
+
+	tempArr := make([]float64, len(strValues))
+
+	// Convert each substring to a float64
+	for i, str := range strValues {
+		value, err := strconv.ParseFloat(str, 64)
+		if err != nil {
+			return nil, errors.New("error converting string to float64")
+		}
+		tempArr[i] = value
+	}
+
+	arr := make([][]float64, numberOfPoints)
+	for i := range arr {
+		arr[i] = make([]float64, numberOfPoints)
+	}
+	k := 0
+
+	for i := 0; i < numberOfPoints; i++ {
+		for j := 0; j < numberOfPoints; j++ {
+			arr[i][j] = tempArr[k]
+			k++
+		}
+	}
+	return arr, nil
+}
 
 type MyEvent struct {
 	DistanceMatrix string `json:"distance_matrix"`
@@ -57,10 +156,32 @@ func HandleRequest(ctx context.Context, request events.APIGatewayProxyRequest) (
 		}, nil
 	}
 
-	optimalSequence := "calculate optimal sequence"
+	distanceMatrix, err := getCostMatrixFromString(event.DistanceMatrix, int(event.NumberOfPoints))
+
+	if err != nil {
+		log.Printf("error in getting cost matrix from string: %v", err)
+		return MyResponse{
+			StatusCode: 400,
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+			Body: `{"message": "error in getting cost matrix from string" }`,
+		}, nil
+	}
+
+	minDistance, optimalPath := tsp(distanceMatrix)
+	minDistanceString := strconv.FormatFloat(minDistance, 'f', 6, 64)
+
+	var strArray []string
+	for _, num := range optimalPath {
+		str := strconv.Itoa(num)
+		strArray = append(strArray, str)
+	}
+	optimalPathString := strings.Join(strArray, ", ")
 
 	body, err := json.Marshal(map[string]string{
-		"result": optimalSequence,
+		"min_distance": minDistanceString,
+		"optimal_path": optimalPathString,
 	})
 	if err != nil {
 		log.Printf("Error marshaling response: %v", err)
